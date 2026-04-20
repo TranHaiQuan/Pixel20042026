@@ -1665,6 +1665,67 @@ const PixelGridConverter = () => {
   const lockCountInQueues = levelData?.QueueGroup.shooterQueues.reduce((acc, q) => acc + q.shooters.filter(s => s.material === -1).length, 0) || 0;
   const keyCountInData = keys.length;
 
+  const saveAllData = async () => {
+    // 1. Image Data
+    const imageData = buildPixelImageData();
+    if (!imageData) return;
+
+    // 2. Level Data
+    if (!levelData) {
+      toast.error("Không có Level Data để lưu!");
+      return;
+    }
+
+    // Validation (as in shooters section)
+    if (lockCountInQueues !== keyCountInData) {
+      toast.error(`Không thể lưu! Số lượng Lock (${lockCountInQueues}) và Key (${keyCountInData}) phải bằng nhau.`);
+      return;
+    }
+
+    for (let i = 0; i < levelData.QueueGroup.shooterQueues.length; i++) {
+      const queue = levelData.QueueGroup.shooterQueues[i];
+      if (queue.shooters.length > 0) {
+        const firstShooter = queue.shooters[0];
+        if (levelData.SurpriseShooters.Shooters.includes(firstShooter.id)) {
+          toast.error(`Không thể lưu! Shooter đầu tiên ở Cột ${i + 1} không được là dấu hỏi.`);
+          return;
+        }
+      }
+    }
+
+    const { id, ImageId, Difficulty, ...rest } = levelData;
+    const filteredQueues = levelData.QueueGroup.shooterQueues.filter(q => q.shooters.length > 0);
+    const levelConfigData = { 
+      id, 
+      ImageId, 
+      Difficulty, 
+      ...rest, 
+      QueueGroup: { shooterQueues: filteredQueues } 
+    };
+
+    const imageFileName = `Image_${imageData.id}.json`;
+    const levelFileName = `Level_${levelData.id ?? 0}.json`;
+
+    // Internal helper for individual downloads to avoid duplicating Picker Code
+    const downloadJson = (data: any, fileName: string) => {
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Download both
+    downloadJson(imageData, imageFileName);
+    setTimeout(() => {
+      downloadJson(levelConfigData, levelFileName);
+      toast.success("Đã tải xuống Image Data & Level Data");
+    }, 100);
+  };
+
   const saveLevelData = async () => {
     const data = buildPixelImageData();
     if (!data) return;
@@ -2554,7 +2615,7 @@ const PixelGridConverter = () => {
               </div>
 
               <div className="flex items-center gap-4 border-l border-border pl-10">
-                <span className="text-xs font-black uppercase tracking-[0.2em] whitespace-nowrap">LEVEL INDEX</span>
+                <span className="text-xs font-black uppercase tracking-[0.2em] whitespace-nowrap">Image ID</span>
                 <div className="flex items-center">
                   <Input
                     type="number"
@@ -2588,6 +2649,9 @@ const PixelGridConverter = () => {
               </Button>
               <Button size="sm" className="h-11 gap-2 text-sm font-bold px-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-md" onClick={saveLevelData}>
                 <Save className="w-4.5 h-4.5" /> Save JSON
+              </Button>
+              <Button size="sm" className="h-11 gap-2 text-sm font-bold px-8 bg-[#22c55e] hover:bg-[#16a34a] text-white rounded-lg shadow-md" onClick={saveAllData}>
+                <Layers className="w-4.5 h-4.5" /> Save All
               </Button>
               <Button variant="outline" size="sm" className="h-11 gap-2 text-sm font-bold px-6 rounded-lg" onClick={copyLevelJson} title="Copy JSON">
                 <Check className="w-4.5 h-4.5 text-green-500" /> Copy JSON
